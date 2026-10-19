@@ -80,8 +80,9 @@ curl -X POST http://127.0.0.1:8080/wp-json/agent007/v1/reg \
 
 Пример:
 ```bash
-curl -X POST http://127.0.0.1:8080/join/AbCdEfGhIj
+curl -X POST http://127.0.0.1:8080/join/AbCdEfGhIj/
 ```
+Важно: указывайте завершающий `/`. Без него WordPress отдает `301`, и POST превращается в GET.
 
 ### 2. Система логирования
 
@@ -110,6 +111,17 @@ curl -X POST http://127.0.0.1:8080/join/AbCdEfGhIj
 - Кнопка "Скачать лог" - экспорт PROCESS.LOG
 - Переключатель "Enable Logging" - включение/выключение логирования
 
+### 3a. Страница «Цели» (этап 3)
+
+**Меню:** Admin → Agent007 → Цели (`manage_options`)
+
+- Список всех целей с фильтром по статусу (Все / Ожидание / Открыто / Завершено), поиском по телефону или ключу, сортировкой и пагинацией.
+- Колонка «Просмотров» — число записей в `access_log` для цели.
+- Изменение: телефон, ключ, статус, путь доступа. Ключ проверяется на формат (10 латинских букв) и уникальность среди целей.
+- Удаление: по одной записи или массово. Цель удаляется вместе со связанными аккаунтами и историей просмотров (`ON DELETE CASCADE`).
+
+Все изменения и удаления пишутся в PROCESS.LOG с ID пользователя.
+
 ## Таблицы БД
 
 ### wp_agent007_targets
@@ -136,6 +148,17 @@ curl -X POST http://127.0.0.1:8080/join/AbCdEfGhIj
 | target_id | BIGINT | Foreign Key на targets.ID |
 | created_at | DATETIME | Время создания |
 | updated_at | DATETIME | Время обновления |
+
+### wp_agent007_access_log
+История успешных запросов номера по ключу (`/join/{key}` с HTTP 200). Строка добавляется только при найденной цели.
+
+| Поле | Тип | Описание |
+|------|-----|---------|
+| ID | BIGINT | Primary Key |
+| target_id | BIGINT | Цель (FK на targets.ID, `ON DELETE CASCADE`) |
+| action | VARCHAR(20) | Действие, по умолчанию `view` |
+| device | VARCHAR(255) | Устройство по User-Agent: `Mobile · iOS · Safari`, `Desktop · Windows · Edge`, `Bot/API` и т.д. Сам User-Agent не хранится |
+| created_at | DATETIME | Время запроса |
 
 ## Безопасность
 
@@ -235,6 +258,14 @@ GPL v2 или выше (как требует WordPress)
 **GitHub:** https://github.com/jimmypageledzeppeling-netizen/agent
 
 ## Changelog
+
+### v1.2.0
+- ✅ Страница «Цели» в админке: список, фильтр, поиск, редактирование, удаление
+- ✅ Таблица access_log: история просмотров по ключу с определением устройства
+
+### v1.1.0
+- ✅ Ловушка /join/{key} (JSON и HTML)
+- ✅ Общий RateLimiter, регистрозависимые ключи
 
 ### v1.0.0 (2026-10-19)
 - ✅ Начальная версия

@@ -43,6 +43,13 @@ class Plugin {
 	private $join_trap;
 
 	/**
+	 * Instance of TargetsPage class
+	 *
+	 * @var TargetsPage
+	 */
+	private $targets;
+
+	/**
 	 * Instance of Admin class
 	 *
 	 * @var Admin
@@ -56,18 +63,23 @@ class Plugin {
 		// Require necessary classes.
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-logger.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-database.php';
+		require_once AGENT007_PLUGIN_DIR . 'includes/class-validator.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-rate-limiter.php';
+		require_once AGENT007_PLUGIN_DIR . 'includes/class-device-detector.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-rest-api.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-join-trap.php';
 		require_once AGENT007_PLUGIN_DIR . 'admin/class-admin.php';
+		require_once AGENT007_PLUGIN_DIR . 'admin/class-targets-page.php';
 
 		// Initialize classes.
 		$rate_limiter    = new RateLimiter();
+		$device_detector = new DeviceDetector();
 		$this->logger    = new Logger();
 		$this->database  = new Database( $this->logger );
 		$this->rest_api  = new RestAPI( $this->database, $this->logger, $rate_limiter );
-		$this->join_trap = new JoinTrap( $this->database, $this->logger, $rate_limiter );
+		$this->join_trap = new JoinTrap( $this->database, $this->logger, $rate_limiter, $device_detector );
 		$this->admin     = new Admin( $this->logger );
+		$this->targets   = new TargetsPage( $this->database, $this->logger );
 	}
 
 	/**
@@ -91,6 +103,9 @@ class Plugin {
 
 		// Join trap: /join/{key}.
 		$this->join_trap->register();
+
+		// Targets admin page (list, edit, delete).
+		$this->targets->register();
 
 		// Initialize REST API.
 		add_action( 'rest_api_init', array( $this->rest_api, 'register_routes' ) );

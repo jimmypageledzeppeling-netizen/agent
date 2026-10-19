@@ -40,16 +40,25 @@ class JoinTrap {
 	private $rate_limiter;
 
 	/**
+	 * Device detector instance
+	 *
+	 * @var DeviceDetector
+	 */
+	private $device_detector;
+
+	/**
 	 * Constructor
 	 *
-	 * @param Database    $database     Database instance.
-	 * @param Logger      $logger       Logger instance.
-	 * @param RateLimiter $rate_limiter Rate limiter instance.
+	 * @param Database            $database        Database instance.
+	 * @param Logger              $logger          Logger instance.
+	 * @param RateLimiter         $rate_limiter    Rate limiter instance.
+	 * @param DeviceDetector|null $device_detector Device detector instance.
 	 */
-	public function __construct( Database $database, Logger $logger, RateLimiter $rate_limiter ) {
-		$this->database     = $database;
-		$this->logger       = $logger;
-		$this->rate_limiter = $rate_limiter;
+	public function __construct( Database $database, Logger $logger, RateLimiter $rate_limiter, $device_detector = null ) {
+		$this->database        = $database;
+		$this->logger          = $logger;
+		$this->rate_limiter    = $rate_limiter;
+		$this->device_detector = $device_detector ? $device_detector : new DeviceDetector();
 	}
 
 	/**
@@ -119,7 +128,7 @@ class JoinTrap {
 
 		$ip = $this->rate_limiter->get_client_ip();
 
-		if ( ! preg_match( '/^[A-Za-z]{10}$/', $key ) ) {
+		if ( ! Validator::is_key( $key ) ) {
 			$result = $this->build_result( 400, 'Некорректный ключ' );
 		} elseif ( ! $this->rate_limiter->check( 'join', $ip, self::RATE_LIMIT ) ) {
 			$result = $this->build_result( 429, 'Слишком много запросов' );
@@ -131,6 +140,10 @@ class JoinTrap {
 			sprintf( 'Join request - Key: %s, IP: %s, Status: %d', substr( $key, 0, 64 ), $ip, $result['status'] ),
 			$result['status'] >= 500 ? 'error' : 'info'
 		);
+
+		if ( 200 === $result['status'] ) {
+			$this->record_access( $result['id'] );
+		}
 
 		if ( $this->wants_json() ) {
 			$this->send_json( $result );
@@ -164,6 +177,24 @@ class JoinTrap {
 			'response' => $target->phone,
 			'id'       => (int) $target->ID,
 		);
+	}
+
+	/**
+	 * Record that a target's phone was viewed by key
+	 *
+	 * A failed write is logged but never breaks the response to the client.
+	 *
+	 * @param int $target_id Target ID.
+	 *
+	 * @since 1.2.0
+	 */
+	private function record_access( $target_id ) {
+		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) : '';
+		$device     = $this->device_detector->detect( $user_agent );
+
+		if ( ! $this->database->insert_access_log( $target_id, $device ) ) {
+			$this->logger->log( sprintf( 'Failed to write access log - Target ID: %d', $target_id ), 'error' );
+		}
 	}
 
 	/**

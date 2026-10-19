@@ -93,7 +93,7 @@ class RestAPI {
 	 */
 	public function validate_phone( $value, $request, $param ) {
 		// Phone should contain only digits and be at least 10 characters.
-		if ( ! preg_match( '/^\d{10,}$/', $value ) ) {
+		if ( ! Validator::is_phone( $value ) ) {
 			return new \WP_Error(
 				'invalid_phone',
 				'Phone number must contain only digits and be at least 10 characters long.',
