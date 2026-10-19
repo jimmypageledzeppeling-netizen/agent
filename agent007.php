@@ -3,7 +3,7 @@
  * Plugin Name: Agent007
  * Plugin URI: https://github.com/jimmypageledzeppeling-netizen/agent
  * Description: Управление аккаунтами ТГ через уникальные коды
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Development Team
  * Author URI: https://github.com/jimmypageledzeppeling-netizen
  * License: GPL v2 or later
@@ -19,7 +19,7 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 // Define plugin constants.
-define( 'AGENT007_VERSION', '1.0.0' );
+define( 'AGENT007_VERSION', '1.1.0' );
 define( 'AGENT007_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGENT007_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'AGENT007_PLUGIN_FILE', __FILE__ );

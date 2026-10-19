@@ -36,14 +36,23 @@ class RestAPI {
 	private $rate_limit = 10;
 
 	/**
+	 * Rate limiter instance
+	 *
+	 * @var RateLimiter
+	 */
+	private $rate_limiter;
+
+	/**
 	 * Constructor
 	 *
-	 * @param Database $database Database instance.
-	 * @param Logger   $logger   Logger instance.
+	 * @param Database         $database     Database instance.
+	 * @param Logger           $logger       Logger instance.
+	 * @param RateLimiter|null $rate_limiter Rate limiter instance.
 	 */
-	public function __construct( Database $database, Logger $logger ) {
-		$this->database = $database;
-		$this->logger   = $logger;
+	public function __construct( Database $database, Logger $logger, $rate_limiter = null ) {
+		$this->database     = $database;
+		$this->logger       = $logger;
+		$this->rate_limiter = $rate_limiter ? $rate_limiter : new RateLimiter();
 	}
 
 	/**
@@ -106,8 +115,8 @@ class RestAPI {
 	 */
 	public function register_phone( $request ) {
 		// Check rate limiting.
-		$ip = $this->get_client_ip();
-		if ( ! $this->check_rate_limit( $ip ) ) {
+		$ip = $this->rate_limiter->get_client_ip();
+		if ( ! $this->rate_limiter->check( 'reg', $ip, $this->rate_limit ) ) {
 			$this->logger->log( sprintf( 'Rate limit exceeded for IP: %s', $ip ), 'warning' );
 			return new \WP_Error(
 				'rate_limit_exceeded',
@@ -163,55 +172,4 @@ class RestAPI {
 		return $key;
 	}
 
-	/**
-	 * Check rate limiting for IP address
-	 *
-	 * @param string $ip Client IP address.
-	 *
-	 * @return bool
-	 *
-	 * @since 1.0.0
-	 */
-	private function check_rate_limit( $ip ) {
-		$transient_key = 'agent007_rate_limit_' . md5( $ip );
-		$request_count = get_transient( $transient_key );
-
-		if ( false === $request_count ) {
-			$request_count = 0;
-		}
-
-		if ( $request_count >= $this->rate_limit ) {
-			return false;
-		}
-
-		set_transient( $transient_key, $request_count + 1, MINUTE_IN_SECONDS );
-
-		return true;
-	}
-
-	/**
-	 * Get client IP address
-	 *
-	 * @return string
-	 *
-	 * @since 1.0.0
-	 */
-	private function get_client_ip() {
-		if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] ) ) {
-			$ip = $_SERVER['HTTP_CLIENT_IP'];
-		} elseif ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-			$ips = explode( ',', $_SERVER['HTTP_X_FORWARDED_FOR'] );
-			$ip  = trim( $ips[0] );
-		} elseif ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
-			$ip = $_SERVER['REMOTE_ADDR'];
-		} else {
-			$ip = '0.0.0.0';
-		}
-
-		if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-			return $ip;
-		}
-
-		return '0.0.0.0';
-	}
 }

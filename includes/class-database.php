@@ -45,12 +45,13 @@ class Database {
 		$targets_sql   = "CREATE TABLE IF NOT EXISTS `$targets_table` (
 			`ID` BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
 			`phone` VARCHAR(20) NOT NULL,
-			`key` VARCHAR(10) NOT NULL,
+			`key` VARCHAR(10) NOT NULL COLLATE utf8mb4_bin,
 			`status` TINYINT(1) DEFAULT 0,
 			`access_path` VARCHAR(255),
 			`created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
 			`updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			INDEX `idx_phone` (`phone`),
+			INDEX `idx_key` (`key`),
 			INDEX `idx_status` (`status`)
 		) $charset_collate;";
 
@@ -100,6 +101,14 @@ class Database {
 
 		foreach ( (array) $unique_keys as $index ) {
 			$wpdb->query( "ALTER TABLE `$targets_table` DROP INDEX `{$index->Key_name}`" );
+		}
+
+		// Keys are case-sensitive, so the lookup must not use a case-insensitive collation.
+		$wpdb->query( "ALTER TABLE `$targets_table` MODIFY `key` VARCHAR(10) NOT NULL COLLATE utf8mb4_bin" );
+
+		$key_index = $wpdb->get_results( "SHOW INDEX FROM `$targets_table` WHERE Key_name = 'idx_key'" );
+		if ( empty( $key_index ) ) {
+			$wpdb->query( "ALTER TABLE `$targets_table` ADD INDEX `idx_key` (`key`)" );
 		}
 
 		if ( ! empty( $wpdb->last_error ) ) {
@@ -161,6 +170,34 @@ class Database {
 			$this->logger->log( sprintf( 'Failed to create target - Phone: %s, Error: %s', $phone, $wpdb->last_error ), 'error' );
 			return false;
 		}
+	}
+
+	/**
+	 * Get target by key (case-sensitive)
+	 *
+	 * @param string $key Key value.
+	 *
+	 * @return object|null|false Target row, null if not found, false on database error.
+	 *
+	 * @since 1.1.0
+	 */
+	public function get_target_by_key( $key ) {
+		global $wpdb;
+
+		$targets_table = $wpdb->prefix . 'agent007_targets';
+		$row           = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT ID, phone FROM `$targets_table` WHERE `key` = %s ORDER BY ID DESC LIMIT 1",
+				$key
+			)
+		);
+
+		if ( ! empty( $wpdb->last_error ) ) {
+			$this->logger->log( 'Failed to look up key: ' . $wpdb->last_error, 'error' );
+			return false;
+		}
+
+		return $row;
 	}
 
 	/**

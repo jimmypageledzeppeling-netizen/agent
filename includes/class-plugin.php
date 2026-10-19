@@ -36,6 +36,13 @@ class Plugin {
 	private $rest_api;
 
 	/**
+	 * Instance of JoinTrap class
+	 *
+	 * @var JoinTrap
+	 */
+	private $join_trap;
+
+	/**
 	 * Instance of Admin class
 	 *
 	 * @var Admin
@@ -49,14 +56,18 @@ class Plugin {
 		// Require necessary classes.
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-logger.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-database.php';
+		require_once AGENT007_PLUGIN_DIR . 'includes/class-rate-limiter.php';
 		require_once AGENT007_PLUGIN_DIR . 'includes/class-rest-api.php';
+		require_once AGENT007_PLUGIN_DIR . 'includes/class-join-trap.php';
 		require_once AGENT007_PLUGIN_DIR . 'admin/class-admin.php';
 
 		// Initialize classes.
-		$this->logger   = new Logger();
-		$this->database = new Database( $this->logger );
-		$this->rest_api = new RestAPI( $this->database, $this->logger );
-		$this->admin    = new Admin( $this->logger );
+		$rate_limiter    = new RateLimiter();
+		$this->logger    = new Logger();
+		$this->database  = new Database( $this->logger );
+		$this->rest_api  = new RestAPI( $this->database, $this->logger, $rate_limiter );
+		$this->join_trap = new JoinTrap( $this->database, $this->logger, $rate_limiter );
+		$this->admin     = new Admin( $this->logger );
 	}
 
 	/**
@@ -78,6 +89,9 @@ class Plugin {
 		// Upgrade schema of existing installations.
 		add_action( 'init', array( $this->database, 'maybe_upgrade' ) );
 
+		// Join trap: /join/{key}.
+		$this->join_trap->register();
+
 		// Initialize REST API.
 		add_action( 'rest_api_init', array( $this->rest_api, 'register_routes' ) );
 	}
@@ -90,6 +104,7 @@ class Plugin {
 	public function activate() {
 		$this->database->create_tables();
 		$this->logger->log( 'Plugin activated successfully' );
+		$this->join_trap->add_rewrite_rule();
 		flush_rewrite_rules();
 	}
 
