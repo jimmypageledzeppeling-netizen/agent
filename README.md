@@ -27,7 +27,7 @@ WordPress плагин для регистрации номеров телефо
 
 **Пример запроса:**
 ```bash
-curl -X POST http://example.com/wp-json/agent007/v1/reg \
+curl -X POST http://127.0.0.1:8080/wp-json/agent007/v1/reg \
   -d "phone=79991234567" \
   -H "Content-Type: application/x-www-form-urlencoded"
 ```

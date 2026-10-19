@@ -42,39 +42,42 @@ class Database {
 
 		// Create targets table.
 		$targets_table = $wpdb->prefix . 'agent007_targets';
-		$targets_sql   = "CREATE TABLE IF NOT EXISTS $targets_table (
-			ID BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			phone VARCHAR(20) NOT NULL UNIQUE,
-			key VARCHAR(10) NOT NULL,
-			status TINYINT(1) DEFAULT 0,
-			access_path VARCHAR(255),
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			INDEX idx_phone (phone),
-			INDEX idx_status (status)
+		$targets_sql   = "CREATE TABLE IF NOT EXISTS `$targets_table` (
+			`ID` BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			`phone` VARCHAR(20) NOT NULL UNIQUE,
+			`key` VARCHAR(10) NOT NULL,
+			`status` TINYINT(1) DEFAULT 0,
+			`access_path` VARCHAR(255),
+			`created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX `idx_phone` (`phone`),
+			INDEX `idx_status` (`status`)
 		) $charset_collate;";
 
 		// Create accounts table.
 		$accounts_table = $wpdb->prefix . 'agent007_accounts';
-		$accounts_sql   = "CREATE TABLE IF NOT EXISTS $accounts_table (
-			ID BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			phone VARCHAR(20) NOT NULL,
-			status TINYINT(1) DEFAULT 0,
-			target_id BIGINT(20),
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			INDEX idx_phone (phone),
-			INDEX idx_status (status),
-			INDEX idx_target_id (target_id),
-			FOREIGN KEY (target_id) REFERENCES $targets_table (ID) ON DELETE CASCADE
+		$accounts_sql   = "CREATE TABLE IF NOT EXISTS `$accounts_table` (
+			`ID` BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+			`phone` VARCHAR(20) NOT NULL,
+			`status` TINYINT(1) DEFAULT 0,
+			`target_id` BIGINT(20),
+			`created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX `idx_phone` (`phone`),
+			INDEX `idx_status` (`status`),
+			INDEX `idx_target_id` (`target_id`),
+			CONSTRAINT `fk_agent007_account_target` FOREIGN KEY (`target_id`) REFERENCES `$targets_table` (`ID`) ON DELETE CASCADE
 		) $charset_collate;";
 
-		// Execute table creation.
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $targets_sql );
-		dbDelta( $accounts_sql );
+		// Execute table creation using direct queries for better reliability.
+		$wpdb->query( $targets_sql );
+		$wpdb->query( $accounts_sql );
 
-		$this->logger->log( 'Database tables created successfully' );
+		if ( ! empty( $wpdb->last_error ) ) {
+			$this->logger->log( 'Database table creation error: ' . $wpdb->last_error, 'error' );
+		} else {
+			$this->logger->log( 'Database tables created successfully' );
+		}
 	}
 
 	/**
