@@ -44,7 +44,7 @@ class Database {
 		$targets_table = $wpdb->prefix . 'agent007_targets';
 		$targets_sql   = "CREATE TABLE IF NOT EXISTS `$targets_table` (
 			`ID` BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-			`phone` VARCHAR(20) NOT NULL UNIQUE,
+			`phone` VARCHAR(20) NOT NULL,
 			`key` VARCHAR(10) NOT NULL,
 			`status` TINYINT(1) DEFAULT 0,
 			`access_path` VARCHAR(255),
@@ -78,6 +78,37 @@ class Database {
 		} else {
 			$this->logger->log( 'Database tables created successfully' );
 		}
+	}
+
+	/**
+	 * Upgrade schema of existing installations
+	 *
+	 * Removes the UNIQUE constraint on targets.phone, so the same number
+	 * can be registered again and receives a new key.
+	 *
+	 * @since 1.0.1
+	 */
+	public function maybe_upgrade() {
+		global $wpdb;
+
+		if ( AGENT007_VERSION === get_option( 'agent007_db_version' ) ) {
+			return;
+		}
+
+		$targets_table = $wpdb->prefix . 'agent007_targets';
+		$unique_keys   = $wpdb->get_results( "SHOW INDEX FROM `$targets_table` WHERE Column_name = 'phone' AND Non_unique = 0" );
+
+		foreach ( (array) $unique_keys as $index ) {
+			$wpdb->query( "ALTER TABLE `$targets_table` DROP INDEX `{$index->Key_name}`" );
+		}
+
+		if ( ! empty( $wpdb->last_error ) ) {
+			$this->logger->log( 'Database upgrade error: ' . $wpdb->last_error, 'error' );
+			return;
+		}
+
+		update_option( 'agent007_db_version', AGENT007_VERSION );
+		$this->logger->log( 'Database schema upgraded to ' . AGENT007_VERSION );
 	}
 
 	/**

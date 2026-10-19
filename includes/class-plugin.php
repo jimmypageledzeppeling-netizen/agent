@@ -75,6 +75,9 @@ class Plugin {
 		add_action( 'admin_menu', array( $this->admin, 'add_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this->admin, 'enqueue_scripts' ) );
 
+		// Upgrade schema of existing installations.
+		add_action( 'init', array( $this->database, 'maybe_upgrade' ) );
+
 		// Initialize REST API.
 		add_action( 'rest_api_init', array( $this->rest_api, 'register_routes' ) );
 	}

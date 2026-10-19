@@ -56,6 +56,16 @@ class Admin {
 			'agent007-logging',
 			array( $this, 'render_logging_page' )
 		);
+
+		// Test submenu.
+		add_submenu_page(
+			'agent007',
+			'Тест',
+			'Тест',
+			'manage_options',
+			'agent007-test',
+			array( $this, 'render_test_page' )
+		);
 	}
 
 	/**
@@ -139,6 +149,38 @@ class Admin {
 		}
 
 		include AGENT007_PLUGIN_DIR . 'admin/views/logging.php';
+	}
+
+	/**
+	 * Render test page: sends a phone through the REST endpoint and shows the response
+	 *
+	 * @since 1.0.1
+	 */
+	public function render_test_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'You do not have permission to access this page.' );
+		}
+
+		$phone  = '';
+		$result = null;
+
+		if ( isset( $_POST['phone'] ) ) {
+			check_admin_referer( 'agent007_test_nonce', 'agent007_nonce' );
+
+			$phone = sanitize_text_field( wp_unslash( $_POST['phone'] ) );
+
+			// Dispatch the same REST route internally, so validation, rate limit and logging apply.
+			$request = new \WP_REST_Request( 'POST', '/agent007/v1/reg' );
+			$request->set_body_params( array( 'phone' => $phone ) );
+			$response = rest_do_request( $request );
+
+			$result = array(
+				'status' => $response->get_status(),
+				'body'   => $response->get_data(),
+			);
+		}
+
+		include AGENT007_PLUGIN_DIR . 'admin/views/test.php';
 	}
 
 	/**
